@@ -6,10 +6,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
-	"gorm.io/driver/mysql"
+
+	//"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
+// testing
 // Cấu trúc User để lưu vào database
 type User struct {
 	ID       uint   `json:"id" gorm:"primaryKey"`
@@ -21,9 +24,10 @@ var DB *gorm.DB
 
 func main() {
 	// Kết nối với MariaDB
-	dsn := "root:root@tcp(127.0.0.1:8889)/bokt?charset=utf8mb4&parseTime=True&loc=Local"
+	//dsn := "root:root@tcp(127.0.0.1:8889)/bokt?charset=utf8mb4&parseTime=True&loc=Local"
+	dsn := "user=postgres password=123@123 dbname=bokt host=localhost port=5432 sslmode=disable"
 	var err error
-	DB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
