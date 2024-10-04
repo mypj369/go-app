@@ -1,4 +1,4 @@
-module go-backend
+module github.com/mypj369/go-app
 
 go 1.23.1
 

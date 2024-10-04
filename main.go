@@ -1,55 +1,102 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/mypj369/go-app/db"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
-// Cấu trúc User để lưu vào database
+// Cấu trúc cấu hình cơ sở dữ liệu
+type DBConfig struct {
+	DBType   string         `json:"db_type"`
+	Postgres PostgresConfig `json:"postgres"`
+	MySQL    MySQLConfig    `json:"mysql"`
+}
+
+type PostgresConfig struct {
+	Host     string `json:"host"`
+	Port     string `json:"port"`
+	User     string `json:"user"`
+	Password string `json:"password"`
+	DBName   string `json:"dbname"`
+	SSLMode  string `json:"sslmode"`
+}
+
+type MySQLConfig struct {
+	Host     string `json:"host"`
+	Port     string `json:"port"`
+	User     string `json:"user"`
+	Password string `json:"password"`
+	DBName   string `json:"dbname"`
+}
+
+// Định nghĩa struct User
 type User struct {
 	ID       uint   `json:"id" gorm:"primaryKey"`
 	Email    string `json:"email" gorm:"unique"`
-	Password string `json:"-"` // Không trả về mật khẩu dưới dạng JSON
+	Password string `json:"-"` // Không trả về mật khẩu trong JSON
 }
 
 var DB *gorm.DB
 
-func main() {
-	// Load cấu hình database từ file config
-	config, err := db.LoadDBConfig("config/database.json")
+// Hàm đọc file JSON
+func loadDBConfig() (DBConfig, error) {
+	var config DBConfig
+	data, err := ioutil.ReadFile("config/database.json")
 	if err != nil {
-		log.Fatal("Error loading database config:", err)
+		return config, err
+	}
+	err = json.Unmarshal(data, &config)
+	return config, err
+}
+
+// Hàm kết nối với PostgreSQL
+func connectPostgres(config PostgresConfig) (*gorm.DB, error) {
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s",
+		config.Host, config.User, config.Password, config.DBName, config.Port, config.SSLMode)
+	return gorm.Open(postgres.Open(dsn), &gorm.Config{})
+}
+
+// Hàm kết nối với MySQL
+func connectMySQL(config MySQLConfig) (*gorm.DB, error) {
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+		config.User, config.Password, config.Host, config.Port, config.DBName)
+	return gorm.Open(mysql.Open(dsn), &gorm.Config{})
+}
+
+func main() {
+	// Đọc file config
+	config, err := loadDBConfig()
+	if err != nil {
+		log.Fatal("Failed to load database config:", err)
 	}
 
-	// Kết nối tới PostgreSQL dựa trên cấu hình đã load
-	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=%s",
-		config.Postgres.Host,
-		config.Postgres.User,
-		config.Postgres.Password,
-		config.Postgres.DBName,
-		config.Postgres.Port,
-		config.Postgres.SSLMode,
-	)
+	// Kết nối với cơ sở dữ liệu dựa trên loại DB (PostgreSQL hoặc MySQL)
+	if config.DBType == "postgres" {
+		DB, err = connectPostgres(config.Postgres)
+	} else if config.DBType == "mysql" {
+		DB, err = connectMySQL(config.MySQL)
+	}
 
-	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
 
-	// Tự động migrate User model vào database
+	// Tự động migrate bảng User
 	DB.AutoMigrate(&User{})
 
 	// Tạo router cho API
 	r := gin.Default()
 
-	// Thêm middleware CORS vào router
+	// Middleware CORS
 	r.Use(func(c *gin.Context) {
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
@@ -69,7 +116,7 @@ func main() {
 			return
 		}
 
-		// Kiểm tra xem email đã tồn tại chưa
+		// Kiểm tra email đã tồn tại chưa
 		var existingUser User
 		if err := DB.Where("email = ?", user.Email).First(&existingUser).Error; err == nil {
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -79,7 +126,7 @@ func main() {
 			return
 		}
 
-		// Mã hóa mật khẩu bằng bcrypt
+		// Mã hóa mật khẩu
 		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
@@ -93,7 +140,7 @@ func main() {
 			return
 		}
 
-		// Trả về phản hồi JSON thành công với thông tin chi tiết
+		// Trả về kết quả thành công
 		c.JSON(http.StatusOK, gin.H{
 			"status":  "success",
 			"message": "User created successfully",
