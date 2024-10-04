@@ -3,24 +3,24 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
-	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
-// Cấu trúc cấu hình cơ sở dữ liệu
-type DBConfig struct {
-	DBType   string         `json:"db_type"`
-	Postgres PostgresConfig `json:"postgres"`
-	MySQL    MySQLConfig    `json:"mysql"`
+// Cấu trúc cấu hình server
+type ServerConfig struct {
+	Server struct {
+		Port string `json:"port"`
+	} `json:"server"`
 }
 
+// Cấu trúc cấu hình cơ sở dữ liệu
 type PostgresConfig struct {
 	Host     string `json:"host"`
 	Port     string `json:"port"`
@@ -30,12 +30,9 @@ type PostgresConfig struct {
 	SSLMode  string `json:"sslmode"`
 }
 
-type MySQLConfig struct {
-	Host     string `json:"host"`
-	Port     string `json:"port"`
-	User     string `json:"user"`
-	Password string `json:"password"`
-	DBName   string `json:"dbname"`
+type DBConfig struct {
+	DBType   string         `json:"db_type"`
+	Postgres PostgresConfig `json:"postgres"`
 }
 
 // Định nghĩa struct User
@@ -47,10 +44,21 @@ type User struct {
 
 var DB *gorm.DB
 
-// Hàm đọc file JSON
+// Hàm đọc file cấu hình server
+func loadServerConfig() (ServerConfig, error) {
+	var config ServerConfig
+	data, err := os.ReadFile("config/environments.json")
+	if err != nil {
+		return config, err
+	}
+	err = json.Unmarshal(data, &config)
+	return config, err
+}
+
+// Hàm đọc file cấu hình cơ sở dữ liệu
 func loadDBConfig() (DBConfig, error) {
 	var config DBConfig
-	data, err := ioutil.ReadFile("config/database.json")
+	data, err := os.ReadFile("config/database.json")
 	if err != nil {
 		return config, err
 	}
@@ -65,27 +73,21 @@ func connectPostgres(config PostgresConfig) (*gorm.DB, error) {
 	return gorm.Open(postgres.Open(dsn), &gorm.Config{})
 }
 
-// Hàm kết nối với MySQL
-func connectMySQL(config MySQLConfig) (*gorm.DB, error) {
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
-		config.User, config.Password, config.Host, config.Port, config.DBName)
-	return gorm.Open(mysql.Open(dsn), &gorm.Config{})
-}
-
 func main() {
-	// Đọc file config
-	config, err := loadDBConfig()
+	serverConfig, err := loadServerConfig()
+	if err != nil {
+		log.Fatal("Failed to load server config:", err)
+	} else {
+		fmt.Println("Server running on port: %s\n", serverConfig.Server.Port)
+	}
+	// Đọc file config database
+	dbConfig, err := loadDBConfig()
 	if err != nil {
 		log.Fatal("Failed to load database config:", err)
 	}
 
-	// Kết nối với cơ sở dữ liệu dựa trên loại DB (PostgreSQL hoặc MySQL)
-	if config.DBType == "postgres" {
-		DB, err = connectPostgres(config.Postgres)
-	} else if config.DBType == "mysql" {
-		DB, err = connectMySQL(config.MySQL)
-	}
-
+	// Kết nối với PostgreSQL
+	DB, err = connectPostgres(dbConfig.Postgres)
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
@@ -150,7 +152,8 @@ func main() {
 			},
 		})
 	})
-
-	// Khởi động server backend
-	r.Run(":8085")
+	// Khởi động server backend với cổng từ environments.json
+	fmt.Printf("Server running on port: %s\n", serverConfig.Server.Port)
+	// Khởi động server backend với cổng từ environments.json
+	r.Run(":" + serverConfig.Server.Port)
 }
