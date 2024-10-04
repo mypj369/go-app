@@ -1,0 +1,14 @@
+# Bỏ qua file cấu hình database
+config/database.json
+
+# Bỏ qua file cấu hình cache
+config/cache.json
+
+# Bỏ qua file cấu hình email
+config/email.json
+
+#config/*.json: Bỏ qua tất cả các file .json trong thư mục config.
+#!config/*.sample.json: Không bỏ qua các file có tên chứa .sample.json (để lại file mẫu cho việc tham khảo).
+#config/*.json
+#!config/*.sample.json
+

@@ -1,0 +1,6 @@
+{
+    "environment": "development",
+    "database": "./config/database.json",
+    "cache": "./config/cache.json",
+    "email": "./config/email.json"
+}
