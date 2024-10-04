@@ -1,17 +1,18 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/mypj369/practice-go/db"
 	"golang.org/x/crypto/bcrypt"
+
+	//"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
+// testing
 // Cấu trúc User để lưu vào database
 type User struct {
 	ID       uint   `json:"id" gorm:"primaryKey"`
@@ -22,22 +23,10 @@ type User struct {
 var DB *gorm.DB
 
 func main() {
-	// Load cấu hình database từ file config
-	config, err := db.LoadDBConfig("config/database.json")
-	if err != nil {
-		log.Fatal("Error loading database config:", err)
-	}
-
-	// Kết nối tới PostgreSQL dựa trên cấu hình đã load
-	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=%s",
-		config.Postgres.Host,
-		config.Postgres.User,
-		config.Postgres.Password,
-		config.Postgres.DBName,
-		config.Postgres.Port,
-		config.Postgres.SSLMode,
-	)
-
+	// Kết nối với MariaDB
+	//dsn := "root:root@tcp(127.0.0.1:8889)/bokt?charset=utf8mb4&parseTime=True&loc=Local"
+	dsn := "user=postgres password=123@123 dbname=bokt host=localhost port=5432 sslmode=disable"
+	var err error
 	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
