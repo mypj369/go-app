@@ -153,7 +153,7 @@ func main() {
 		})
 	})
 	// Khởi động server backend với cổng từ environments.json
-	fmt.Printf("Server running on port: %s\n", serverConfig.Server.Port)
+	//fmt.Printf("Server running on port: %s\n", serverConfig.Server.Port)
 	// Khởi động server backend với cổng từ environments.json
 	r.Run(":" + serverConfig.Server.Port)
 }
